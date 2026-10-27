@@ -1,0 +1,19 @@
+# The parent Personal-Agent-System ignore rule `**/*session*` also matches this source module.
+!src/session-store.ts
+
+# Private validation assets and local toolchain files must never enter a release.
+.toolchain/
+.validation/
+node_modules/
+dist/
+npm-cache/
+*.log
+logs/
+cache/
+state/
+data/
+downloads/
+
+# Keep only the documented placeholder configuration file eligible for review.
+.env*
+!.env.example

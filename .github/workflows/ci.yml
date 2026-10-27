@@ -1,0 +1,56 @@
+# DRAFT - not committed or pushed anywhere. Target repo: openclaw-qqbot-community (private first).
+# Before the repo becomes public: pin every action to a full commit SHA (see CI-PREP-20261027.md, item C3).
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: ${{ matrix.os }} / node ${{ matrix.node }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025]
+        node: ['24']
+    steps:
+      - uses: actions/checkout@v4          # TODO: pin to commit SHA
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4        # TODO: pin to commit SHA
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      # Lockfile only, official registry, no lifecycle scripts (openclaw, @google/genai,
+      # protobufjs and tree-sitter-bash declare install scripts; they are deliberately skipped).
+      - name: Install dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund --registry=https://registry.npmjs.org/
+
+      - name: Type check
+        run: node node_modules/typescript/bin/tsc --noEmit --pretty false -p tsconfig.json
+
+      - name: Build
+        run: npm run build
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Compiled regression tests
+        run: |
+          node --test dist/src/agent-task-delivery.test.js
+          node --test dist/src/ocr.test.js
+          node --test dist/src/request-context.test.js

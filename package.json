@@ -1,0 +1,68 @@
+{
+  "name": "openclaw-qqbot-community",
+  "version": "1.7.2",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "skills/qqbot-channel",
+    "skills/qqbot-remind",
+    "skills/qqbot-media",
+    "preload.cjs",
+    "openclaw.plugin.json",
+    "scripts/link-sdk-core.cjs",
+    "README.md",
+    "README.zh.md",
+    "LICENSE"
+  ],
+  "openclaw": {
+    "id": "openclaw-qqbot",
+    "extensions": [
+      "./preload.cjs"
+    ],
+    "channel": {
+      "id": "qqbot",
+      "label": "QQ Bot"
+    }
+  },
+  "scripts": {
+    "build": "node scripts/clean-dist.mjs && tsc",
+    "prepack": "npm run build",
+    "dev": "tsc --watch",
+    "test": "npm run test:scripts && npm run test:r1paths && npm run test:r2 && npm run test:token && npm run test:ssrf && npm run test:logsafety && npm run test:documents && npm run test:privacy && node src/remote-upgrade-disabled.test.mjs",
+    "test:privacy": "node --experimental-vm-modules src/reply-privacy.test.mjs",
+    "test:scripts": "node scripts/postinstall-link-sdk.test.js && node scripts/openclaw-delivery-queue-loader.test.mjs && node scripts/clean-dist.test.mjs",
+    "test:r1paths": "node --disable-warning=ExperimentalWarning --experimental-strip-types src/agent-task-delivery-paths.test.mjs && node --disable-warning=ExperimentalWarning --experimental-strip-types src/utils/qqbot-data-paths.test.mjs && node --disable-warning=ExperimentalWarning --experimental-strip-types src/group-search-config.test.mjs",
+    "test:r2": "node --disable-warning=ExperimentalWarning --experimental-strip-types src/credential-backup.test.mjs",
+    "test:token": "node --disable-warning=ExperimentalWarning --experimental-strip-types src/token-endpoint.test.mjs",
+    "test:ssrf": "node --disable-warning=ExperimentalWarning --experimental-strip-types src/utils/safe-remote-request.test.mjs",
+    "test:logsafety": "node --disable-warning=ExperimentalWarning --experimental-strip-types src/log-safety.test.mjs",
+    "test:documents": "node --disable-warning=ExperimentalWarning --experimental-strip-types src/document-parser.test.mjs"
+  },
+  "dependencies": {
+    "mpg123-decoder": "^1.0.3",
+    "silk-wasm": "^3.7.1",
+    "ws": "^8.18.0"
+  },
+  "bundledDependencies": [
+    "mpg123-decoder",
+    "silk-wasm",
+    "ws"
+  ],
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/ws": "^8.5.0",
+    "typescript": "^5.9.3"
+  },
+  "peerDependencies": {
+    "openclaw": "*"
+  },
+  "bundleDependencies": [
+    "mpg123-decoder",
+    "silk-wasm",
+    "ws"
+  ]
+}
