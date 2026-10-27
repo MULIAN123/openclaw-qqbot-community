@@ -1,5 +1,6 @@
 ﻿import assert from "node:assert/strict";
 import crypto from "node:crypto";
+import { existsSync } from "node:fs";
 import * as fsp from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -20,7 +21,9 @@ const SECRET = "fixture-secret-not-production";
 function resolvePluginRootForTests(): string {
   let directory = path.dirname(fileURLToPath(import.meta.url));
   for (let depth = 0; depth < 4; depth++) {
-    if (path.basename(directory) === "openclaw-qqbot") return directory;
+    // Identify the plugin root by its files, not its folder name (checkout dirs vary).
+    if (existsSync(path.join(directory, "openclaw.plugin.json"))
+        && existsSync(path.join(directory, "scripts", "openclaw-delivery-queue-loader.mjs"))) return directory;
     directory = path.dirname(directory);
   }
   throw new Error("could not resolve candidate plugin root");
