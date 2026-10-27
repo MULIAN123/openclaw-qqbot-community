@@ -1,5 +1,4 @@
-# DRAFT - not committed or pushed anywhere. Target repo: openclaw-qqbot-community (private first).
-# Before the repo becomes public: pin every action to a full commit SHA (see CI-PREP-20261027.md, item C3).
+# Actions are pinned to full commit SHAs (resolved from their v4 tags on 2026-10-27).
 name: ci
 
 on:
@@ -26,11 +25,11 @@ jobs:
         os: [ubuntu-24.04, windows-2025]
         node: ['24']
     steps:
-      - uses: actions/checkout@v4          # TODO: pin to commit SHA
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4.4.0
         with:
           persist-credentials: false
 
-      - uses: actions/setup-node@v4        # TODO: pin to commit SHA
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020   # v4.4.0
         with:
           node-version: ${{ matrix.node }}
           cache: npm
