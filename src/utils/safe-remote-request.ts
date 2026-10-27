@@ -2,7 +2,7 @@ import dns from "node:dns/promises";
 import http from "node:http";
 import https from "node:https";
 import net from "node:net";
-import type { LookupFunction } from "node:dns";
+import type { LookupFunction } from "node:net";
 import type { IncomingMessage } from "node:http";
 
 const restrictedAddresses = new net.BlockList();
@@ -60,7 +60,11 @@ function ipv4FromMappedAddress(address: string): string | null {
 
 async function resolveHost(hostname: string): Promise<ResolvedAddress[]> {
   try {
-    return await dns.lookup(hostname, { all: true, verbatim: true });
+    const results = await dns.lookup(hostname, { all: true, verbatim: true });
+    return results.map(({ address, family }): ResolvedAddress => {
+      if (family !== 4 && family !== 6) throw new Error("unexpected address family");
+      return { address, family: family === 6 ? 6 : 4 };
+    });
   } catch {
     throw new Error("Remote host DNS resolution failed");
   }
