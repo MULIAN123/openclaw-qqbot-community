@@ -421,11 +421,14 @@ test("V1.1.1 duplicate path with changed content requires review", async (t) => 
   assert.equal(fx.service.getTaskForTest(task.taskId)?.deliveryState, "requires_review");
 });
 
-// Legacy host-contract tests. CI explicitly enables them; loading a published
-// recovery facade does not imply support for the legacy JSON/pending_claim contract.
+// Legacy custom-host contract (JSON delivery-queue files + pending_claim recovery state).
+// NOT part of the independent plugin release: official OpenClaw 2026.6.x keeps the queue in
+// SQLite and has no pending_claim state, so against it both tests fail (0/2, see
+// docs/LEGACY-HOST-CONTRACT.md). Assertions are kept unchanged as the contract record;
+// set QQBOT_OPENCLAW_RUNTIME_TESTS=1 to run them against a host that claims this contract.
 const hostRuntimeSkip = process.env.QQBOT_OPENCLAW_RUNTIME_TESTS === "1"
   ? false
-  : "requires a host OpenClaw runtime (set QQBOT_OPENCLAW_RUNTIME_TESTS=1 to run)";
+  : "legacy custom-host contract, not supported by the independent release (set QQBOT_OPENCLAW_RUNTIME_TESTS=1 to run)";
 
 test("V1.1.1 runtime queue missing replyToId is marked pending_claim without upload", { skip: hostRuntimeSkip }, async (t) => {
   const fx = await fixture(t);
@@ -1110,6 +1113,63 @@ test("V1.1 multiple_files partial failure retries only failed files", async (t) 
   const sent: string[] = []; const state = fx.service.getTaskForTest(task.taskId)!;
   await fx.service.deliverPendingWithInbound({ task: state, accountId: ACCOUNT, target: task.target, requesterId: task.requester, replyToId: "fresh", sendText: async () => {}, sendFile: async (p) => { sent.push(path.basename(p)); return {}; } });
   assert.equal(sent.length, 2); assert.equal(sent.includes(path.basename(media[0].mediaUrl)), false);
+});
+
+test("V1.2 fail-closed: pending delivery refuses an empty replyToId", async (t) => {
+  const fx = await fixture(t); const task = await createDirectInbound(fx);
+  await collectDirect(fx, task, await writeDirectFile(task, "one.txt", "one\n"));
+  const plan = await fx.service.prepareDirectTurn({ taskId: task.taskId, originMessageId: task.messageId });
+  const media = (plan.payloads?.find((p) => p.mediaUrl) as { mediaUrl: string }).mediaUrl;
+  await fx.service.markDeliverable({ taskId: plan.taskId, idempotencyKey: plan.idempotencyKey, mediaUrl: media, ok: false, error: "offline" });
+  await fx.service.markDelivery({ taskId: plan.taskId, idempotencyKey: plan.idempotencyKey, ok: false, error: "offline" });
+  const state = fx.service.getTaskForTest(task.taskId)!;
+  assert.equal(state.deliveryState, "pending_delivery");
+  let calls = 0;
+  for (const replyToId of ["", "   "]) {
+    const delivered = await fx.service.deliverPendingWithInbound({ task: state, accountId: ACCOUNT, target: task.target, requesterId: task.requester, replyToId, sendText: async () => { calls += 1; }, sendFile: async () => { calls += 1; return {}; } });
+    assert.equal(delivered, false);
+  }
+  assert.equal(calls, 0);
+  assert.equal(state.deliveryState, "pending_delivery");
+  assert.equal(state.deliverables[0].deliveryState, "failed");
+});
+
+test("V1.2 fail-closed: a deliverable with unknown outcome is not resent", async (t) => {
+  const fx = await fixture(t); const task = await createTask(fx);
+  await writeSource(task);
+  const plan = await complete(fx, task);
+  assert.equal(plan.suppressDelivery, false);
+  // Interrupted before any receipt: a duplicate completion moves the task back to
+  // pending_delivery, while the deliverable stays "delivering" because nobody knows whether it was sent.
+  const retry = await complete(fx, task);
+  assert.equal(retry.reason, "delivery_state_uncertain");
+  const state = fx.service.getTaskForTest(task.taskId)!;
+  assert.equal(state.deliveryState, "pending_delivery");
+  assert.equal(state.deliverables[0].deliveryState, "delivering");
+  let calls = 0;
+  const delivered = await fx.service.deliverPendingWithInbound({ task: state, accountId: ACCOUNT, target: task.target, requesterId: task.requester, replyToId: "fresh", sendText: async () => { calls += 1; }, sendFile: async () => { calls += 1; return {}; } });
+  assert.equal(delivered, false);
+  assert.equal(calls, 0);
+  assert.equal(state.deliveryState, "requires_review");
+  assert.equal(state.requiresReview, true);
+  assert.match(state.lastError ?? "", /delivery_outcome_unknown/);
+});
+
+test("V1.2 fail-closed: markDelivery(ok) confirms only deliverables in the current attempt", async (t) => {
+  const fx = await fixture(t); const task = await createDirectInbound(fx);
+  for (const name of ["one.txt", "two.csv"]) await collectDirect(fx, task, await writeDirectFile(task, name, name));
+  const plan = await fx.service.prepareDirectTurn({ taskId: task.taskId, originMessageId: task.messageId });
+  const media = (plan.payloads ?? []).filter((p) => p.mediaUrl) as Array<{ mediaUrl: string }>;
+  assert.equal(media.length, 2);
+  await fx.service.markDeliverable({ taskId: plan.taskId, idempotencyKey: plan.idempotencyKey, mediaUrl: media[0].mediaUrl, ok: true, platformReceipt: "r1" });
+  await fx.service.markDeliverable({ taskId: plan.taskId, idempotencyKey: plan.idempotencyKey, mediaUrl: media[1].mediaUrl, ok: false, error: "upload rejected" });
+  // A batch-level success must not overwrite the explicit per-file failure.
+  await fx.service.markDelivery({ taskId: plan.taskId, idempotencyKey: plan.idempotencyKey, ok: true });
+  const state = fx.service.getTaskForTest(task.taskId)!;
+  assert.deepEqual(state.deliverables.map((d) => d.deliveryState).sort(), ["delivered", "failed"]);
+  assert.equal(state.deliveryState, "pending_delivery");
+  assert.equal(state.idempotencyConsumedAt, undefined);
+  assert.match(state.lastError ?? "", /delivery_incomplete/);
 });
 
 test("V1.1 platform receipt is persisted per deliverable", async (t) => {

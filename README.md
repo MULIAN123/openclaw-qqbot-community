@@ -229,6 +229,14 @@ Toggle group @trigger behavior at runtime — changes persist instantly, no rest
 
 ---
 
+## Compatibility
+
+- **Supported host:** official OpenClaw 2026.6.x (the lockfile pins `openclaw` 2026.6.10). Its outbound delivery queue is stored in SQLite.
+- **Not supported:** the legacy custom-host contract that kept the delivery queue as JSON files and recovered entries without a reply context into a `pending_claim` state. Two tests describe that contract; they are kept unchanged but skipped by default, and CI runs them only as an informational step that is expected to fail on official OpenClaw. Details: [docs/LEGACY-HOST-CONTRACT.md](docs/LEGACY-HOST-CONTRACT.md).
+- **Delivery safety (fail-closed):** a pending task is never resent without a reply context (`replyToId`), a file whose previous delivery outcome is unknown is sent to review instead of being sent again, and a batch-level success only confirms the files that were part of that attempt.
+
+---
+
 ## 🚀 Getting Started
 
 ### Step 1 — Create a QQ Bot on the QQ Open Platform

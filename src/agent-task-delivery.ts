@@ -1138,18 +1138,28 @@ export class AgentTaskDeliveryService {
     const account = this.accountForTask(task);
     if (!account) return;
     if (input.ok) {
+      // Only deliverables that were part of this attempt are confirmed; others keep their state.
       for (const deliverable of task.deliverables) {
-        if (deliverable.deliveryState !== "delivered") deliverable.deliveryState = "delivered";
+        if (deliverable.deliveryState !== "delivering") continue;
+        deliverable.deliveryState = "delivered";
         deliverable.uploadState = "uploaded";
         deliverable.messageState = "sent";
         deliverable.lastError = undefined;
       }
-      task.status = "delivered";
-      task.progressPhase = "delivered";
-      task.deliveryState = "delivered";
-      task.idempotencyConsumedAt = iso(this.now);
-      task.lastError = undefined;
-      task.deliveryAttempts.push({ at: iso(this.now), state: "sent", replyContextHash: task.originMessageHash });
+      if (task.deliverables.every((entry) => entry.deliveryState === "delivered")) {
+        task.status = "delivered";
+        task.progressPhase = "delivered";
+        task.deliveryState = "delivered";
+        task.idempotencyConsumedAt = iso(this.now);
+        task.lastError = undefined;
+        task.deliveryAttempts.push({ at: iso(this.now), state: "sent", replyContextHash: task.originMessageHash });
+      } else {
+        task.status = "pending_delivery";
+        task.progressPhase = "pending_delivery";
+        task.deliveryState = "pending_delivery";
+        task.lastError = safeError("delivery_incomplete");
+        task.deliveryAttempts.push({ at: iso(this.now), state: "pending", replyContextHash: task.originMessageHash, error: task.lastError });
+      }
     } else {
       for (const deliverable of task.deliverables) {
         if (deliverable.deliveryState === "delivering") {
@@ -1300,9 +1310,17 @@ export class AgentTaskDeliveryService {
     sendFile: (filePath: string) => Promise<{ error?: string }>;
   }): Promise<boolean> {
     const task = input.task;
+    // Without a reply context the sends below would become quota-limited proactive messages.
+    if (typeof input.replyToId !== "string" || !input.replyToId.trim()) return false;
     const account = this.accounts.get(input.accountId);
     if (!account || task.deliveryState !== "pending_delivery" || !task.deliveryMode || task.idempotencyConsumedAt) return false;
     if (task.conversationHash !== keyedHash(account.clientSecret, input.target) || task.requesterHash !== keyedHash(account.clientSecret, input.requesterId)) return false;
+    // A deliverable still "delivering" comes from an interrupted attempt whose outcome is unknown
+    // (it may already have reached the user); resending could duplicate it, so require review.
+    if (task.deliverables.some((entry) => entry.deliveryState === "delivering")) {
+      await this.requireReview(task, "delivery_outcome_unknown");
+      return false;
+    }
     task.status = "delivering";
     task.progressPhase = "delivering";
     task.deliveryState = "delivering";
