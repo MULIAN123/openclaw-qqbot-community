@@ -421,7 +421,14 @@ test("V1.1.1 duplicate path with changed content requires review", async (t) => 
   assert.equal(fx.service.getTaskForTest(task.taskId)?.deliveryState, "requires_review");
 });
 
-test("V1.1.1 runtime queue missing replyToId is marked pending_claim without upload", async (t) => {
+// These two tests load an internal, hash-named chunk of the host OpenClaw build (normally linked
+// in by scripts/link-sdk-core.cjs). A plain registry install of openclaw does not provide a single
+// matching chunk, so they only run where a host runtime is available.
+const hostRuntimeSkip = process.env.QQBOT_OPENCLAW_RUNTIME_TESTS === "1"
+  ? false
+  : "requires a host OpenClaw runtime (set QQBOT_OPENCLAW_RUNTIME_TESTS=1 to run)";
+
+test("V1.1.1 runtime queue missing replyToId is marked pending_claim without upload", { skip: hostRuntimeSkip }, async (t) => {
   const fx = await fixture(t);
   const queueDir = path.join(fx.root, "delivery-queue");
   await fsp.mkdir(queueDir, { recursive: true });
@@ -436,7 +443,7 @@ test("V1.1.1 runtime queue missing replyToId is marked pending_claim without upl
   assert.equal(updated.legacyIncompatibleReason, "missing_reply_to_id");
 });
 
-test("V1.1.1 runtime queue with valid replyToId still recovers", async (t) => {
+test("V1.1.1 runtime queue with valid replyToId still recovers", { skip: hostRuntimeSkip }, async (t) => {
   const fx = await fixture(t);
   const queueDir = path.join(fx.root, "delivery-queue");
   await fsp.mkdir(queueDir, { recursive: true });
