@@ -44,6 +44,24 @@ jobs:
       - name: Install dependencies
         run: npm ci --ignore-scripts --no-audit --no-fund --registry=https://registry.npmjs.org/
 
+      # Read-only: shows which precondition of scripts/openclaw-delivery-queue-loader.mjs holds,
+      # since the loader deliberately reports only a generic error.
+      - name: Diagnose OpenClaw delivery-queue chunk (read-only)
+        run: |
+          node -e '
+            const fs = require("node:fs"), path = require("node:path");
+            const m = path.resolve("node_modules"), o = path.join(m, "openclaw"), d = path.join(o, "dist");
+            for (const p of [m, o, d]) {
+              let s; try { s = fs.lstatSync(p); } catch { console.log(p, "missing"); continue; }
+              console.log(path.relative(".", p), "dir=" + s.isDirectory(), "symlink=" + s.isSymbolicLink());
+            }
+            try { const pkg = JSON.parse(fs.readFileSync(path.join(o, "package.json"), "utf8")); console.log("openclaw name=" + pkg.name, "version=" + pkg.version); } catch (e) { console.log("package.json unreadable"); }
+            try { const all = fs.readdirSync(d); const hits = all.filter(n => /delivery-queue/i.test(n));
+              console.log("dist entries=" + all.length, "matching /^delivery-queue-[^/\\\\]+\\.js$/=" + hits.filter(n => /^delivery-queue-[^/\\]+\.js$/.test(n)).length);
+              hits.forEach(n => console.log("  " + n));
+            } catch { console.log("dist unreadable"); }
+          '
+
       - name: Type check
         run: node node_modules/typescript/bin/tsc --noEmit --pretty false -p tsconfig.json
 
