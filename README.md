@@ -27,9 +27,9 @@
 
 ---
 
-This candidate is based on Tencent Connect's [openclaw-qqbot](https://github.com/tencent-connect/openclaw-qqbot). It is an independent remediation candidate; no claim of official affiliation or wholly original authorship is made. The exact upstream commit baseline and third-party asset provenance still require verification before publication.
+This project is based on Tencent Connect's [openclaw-qqbot](https://github.com/tencent-connect/openclaw-qqbot). It is an independent community remediation; no claim of official affiliation or wholly original authorship is made. Changes were reviewed against upstream v1.7.1 (commit e74be7a); the exact original fork point is not proven.
 
-> **Release status:** The first release is intended to be a standalone GitHub source repository only. No npm package or remote hot-upgrade feature is included. Repository identity, exact upstream baseline, third-party provenance, and isolated build verification remain pending before publication.
+> **Release status:** Source-only GitHub repository. No npm package, no GitHub Release, and no remote hot-upgrade feature. Type checking, build and tests run in CI on Ubuntu 24.04 and Windows 2025 (Node 24) against official OpenClaw 2026.6.10; see [Compatibility](#compatibility) for the unsupported legacy host contract.
 
 ## ✨ Features
 

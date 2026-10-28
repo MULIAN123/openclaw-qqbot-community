@@ -23,9 +23,9 @@
 
 ---
 
-本候选版本基于腾讯互联的 [openclaw-qqbot](https://github.com/tencent-connect/openclaw-qqbot)。它是独立整改候选，不代表官方关联或完全原创。发布前仍需核实准确的上游提交基线和第三方素材来源。
+本项目基于腾讯互联的 [openclaw-qqbot](https://github.com/tencent-connect/openclaw-qqbot)，是独立的社区整改版本，不代表官方关联，也不声称完全原创。改动对照上游 v1.7.1（提交 e74be7a）审查过，确切的原始分叉点未经证实。
 
-> **发布状态：** 首发仅准备独立 GitHub 源码仓库，不发布 npm 包，也不包含远程热升级。仓库身份、准确上游基线、第三方来源和隔离构建验证仍需在公开前完成。
+> **发布状态：** 仅提供 GitHub 源码，不发布 npm 包和 GitHub Release，不包含远程热升级。类型检查、构建和测试在 Ubuntu 24.04 与 Windows 2025（Node 24）、官方 OpenClaw 2026.6.10 上通过 CI 验证；不支持的旧宿主契约见[兼容性](#兼容性)一节。
 
 ## ✨ 功能特性
 
