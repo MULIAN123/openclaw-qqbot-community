@@ -62,9 +62,6 @@ jobs:
             } catch { console.log("dist unreadable"); }
           '
 
-      - name: Inspect installed recovery contract (read-only)
-        run: node scripts/inspect-delivery-queue.mjs
-
       - name: Type check
         run: node node_modules/typescript/bin/tsc --noEmit --pretty false -p tsconfig.json
 

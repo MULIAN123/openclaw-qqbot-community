@@ -28,15 +28,28 @@ export async function loadDeliveryQueueRuntime(pluginRoot) {
     if (manifest.name !== "openclaw") throw new Error("unexpected local package");
 
     const chunks = (await fs.readdir(distRoot)).filter((name) => /^delivery-queue-[^/\\]+\.js$/.test(name));
-    if (chunks.length !== 1) throw new Error("queue module unavailable");
-
     const packageRealRoot = await fs.realpath(openclawRoot);
-    const modulePath = await fs.realpath(path.join(distRoot, chunks[0]));
-    if (!isWithin(packageRealRoot, modulePath)) throw new Error("queue module escaped local package");
-    const moduleStat = await fs.lstat(path.join(distRoot, chunks[0]));
-    if (!moduleStat.isFile() || moduleStat.isSymbolicLink()) throw new Error("queue module is not a regular file");
+    const candidates = [];
+    for (const chunk of chunks) {
+      const candidatePath = path.join(distRoot, chunk);
+      const moduleStat = await fs.lstat(candidatePath);
+      if (!moduleStat.isFile() || moduleStat.isSymbolicLink()) throw new Error("queue module is not a regular file");
+      const modulePath = await fs.realpath(candidatePath);
+      if (!isWithin(packageRealRoot, modulePath)) throw new Error("queue module escaped local package");
+      const source = await fs.readFile(modulePath, "utf8");
+      // The 2026.6.10 package has a dedicated facade with this named export.
+      // Other queue chunks contain storage or unrelated minified exports ("i"
+      // is isPermanentDeliveryError in that version). Never guess an alias or
+      // import every chunk to discover exports, which could execute side effects.
+      if (/^export\s*\{\s*recoverPendingDeliveries\s*\}\s*;?\s*$/m.test(source)) {
+        candidates.push(modulePath);
+      }
+    }
+    if (candidates.length !== 1) throw new Error("queue recovery facade unavailable or ambiguous");
 
-    return await import(pathToFileURL(modulePath).href);
+    const runtime = await import(pathToFileURL(candidates[0]).href);
+    if (typeof runtime.recoverPendingDeliveries !== "function") throw new Error("invalid recovery export");
+    return runtime;
   } catch {
     throw new Error("candidate-local OpenClaw delivery queue module is unavailable or unsafe");
   }

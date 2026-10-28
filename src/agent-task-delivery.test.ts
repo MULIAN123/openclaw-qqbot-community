@@ -51,11 +51,11 @@ test("default Task Delivery paths use the configured OpenClaw data root", () => 
   }
 });
 
-async function loadCandidateDeliveryQueueRuntime(): Promise<{ i: (opts: unknown) => Promise<unknown> }> {
+async function loadCandidateDeliveryQueueRuntime(): Promise<{ recoverPendingDeliveries: (opts: unknown) => Promise<unknown> }> {
   const pluginRoot = resolvePluginRootForTests();
   const loaderPath = path.join(pluginRoot, "scripts", "openclaw-delivery-queue-loader.mjs");
   const loader = await import(pathToFileURL(loaderPath).href) as {
-    loadDeliveryQueueRuntime(root: string): Promise<{ i: (opts: unknown) => Promise<unknown> }>;
+    loadDeliveryQueueRuntime(root: string): Promise<{ recoverPendingDeliveries: (opts: unknown) => Promise<unknown> }>;
   };
   return loader.loadDeliveryQueueRuntime(pluginRoot);
 }
@@ -421,9 +421,8 @@ test("V1.1.1 duplicate path with changed content requires review", async (t) => 
   assert.equal(fx.service.getTaskForTest(task.taskId)?.deliveryState, "requires_review");
 });
 
-// These two tests load an internal, hash-named chunk of the host OpenClaw build (normally linked
-// in by scripts/link-sdk-core.cjs). A plain registry install of openclaw does not provide a single
-// matching chunk, so they only run where a host runtime is available.
+// Legacy host-contract tests. CI explicitly enables them; loading a published
+// recovery facade does not imply support for the legacy JSON/pending_claim contract.
 const hostRuntimeSkip = process.env.QQBOT_OPENCLAW_RUNTIME_TESTS === "1"
   ? false
   : "requires a host OpenClaw runtime (set QQBOT_OPENCLAW_RUNTIME_TESTS=1 to run)";
@@ -436,7 +435,7 @@ test("V1.1.1 runtime queue missing replyToId is marked pending_claim without upl
   await fsp.writeFile(path.join(queueDir, `${entry.id}.json`), JSON.stringify(entry, null, 2), "utf8");
   const runtime = await loadCandidateDeliveryQueueRuntime();
   let uploadCalls = 0;
-  await runtime.i({ stateDir: fx.root, cfg: {}, deliver: async () => { uploadCalls += 1; }, log: { info() {}, warn() {}, error() {} } });
+  await runtime.recoverPendingDeliveries({ stateDir: fx.root, cfg: {}, deliver: async () => { uploadCalls += 1; }, log: { info() {}, warn() {}, error() {} } });
   const updated = JSON.parse(await fsp.readFile(path.join(queueDir, `${entry.id}.json`), "utf8")) as { recoveryState?: string; legacyIncompatibleReason?: string };
   assert.equal(uploadCalls, 0);
   assert.equal(updated.recoveryState, "pending_claim");
@@ -451,7 +450,7 @@ test("V1.1.1 runtime queue with valid replyToId still recovers", { skip: hostRun
   await fsp.writeFile(path.join(queueDir, `${entry.id}.json`), JSON.stringify(entry, null, 2), "utf8");
   const runtime = await loadCandidateDeliveryQueueRuntime();
   let uploadCalls = 0;
-  await runtime.i({ stateDir: fx.root, cfg: {}, deliver: async () => { uploadCalls += 1; }, log: { info() {}, warn() {}, error() {} } });
+  await runtime.recoverPendingDeliveries({ stateDir: fx.root, cfg: {}, deliver: async () => { uploadCalls += 1; }, log: { info() {}, warn() {}, error() {} } });
   assert.equal(uploadCalls, 1);
   await assert.rejects(fsp.stat(path.join(queueDir, `${entry.id}.json`)));
 });
