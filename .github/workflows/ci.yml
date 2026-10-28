@@ -76,3 +76,8 @@ jobs:
           node --test dist/src/agent-task-delivery.test.js
           node --test dist/src/ocr.test.js
           node --test dist/src/request-context.test.js
+
+      - name: Required host-runtime queue tests (no skips)
+        env:
+          QQBOT_OPENCLAW_RUNTIME_TESTS: '1'
+        run: node --test --test-reporter=tap --test-name-pattern="^V1\.1\.1 runtime queue" dist/src/agent-task-delivery.test.js
